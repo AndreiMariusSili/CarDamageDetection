@@ -16,40 +16,41 @@ def get_model():
     return res_net.to(device)
 
 
-def get_data_loader():
-    dataset = ds.CarDamageDataset()
+def get_data_loader(subset: str):
+    dataset = ds.CarDamageDataset(subset)
 
-    return thd.DataLoader(dataset, 4, shuffle=True, num_workers=12, pin_memory=False), dataset
+    return thd.DataLoader(dataset, 64, shuffle=True, num_workers=12, pin_memory=False), dataset
 
 
 def main():
     device = th.device('cuda' if th.cuda.is_available() else 'cpu')
-    data_loader, dataset = get_data_loader()
+    data_loader, dataset = get_data_loader('training/*')
     model = get_model()
+    sigmoid = nn.Sigmoid()
     criterion = nn.BCEWithLogitsLoss()
-    optimizer = optim.Adam(model.parameters())
+    optimizer = optim.Adam(model.parameters(), lr=0.0001)
 
-    th.save(model.state_dict(), 'model.pth')
-    for epoch in range(50):
+    for epoch in range(1):
         epoch_acc = 0
-        for i, (x, y) in enumerate(data_loader):
+        for i, (x, y, _) in enumerate(data_loader):
             b = x.shape[0]
             y = y.reshape(b, 1)
             x, y = x.to(device), y.to(device)
 
-            y_hat = model(x)
-            loss = criterion(y_hat, y)
+            e_hat = model(x)
+            loss = criterion(e_hat, y)
 
             loss.backward()
             optimizer.step()
             optimizer.zero_grad()
-
             with th.no_grad():
                 # noinspection PyUnresolvedReferences
-                acc = (y_hat.round() == y).sum().to(th.float)
+                acc = (sigmoid(e_hat).round() == y).sum().to(th.float)
                 epoch_acc += acc
                 print(f'[Epoch: {epoch:03d}][Batch: {i:03d}][BCE LOSS: {loss.item():.4f}][Accuracy@1: {acc / b:.4f}]')
+                th.save(model.state_dict(), 'model.pth')
         print(f'[Epoch Accuracy@1: {epoch_acc / len(dataset):.4f}]')
+    th.save(model.state_dict(), 'model.pth')
 
 
 if __name__ == '__main__':
