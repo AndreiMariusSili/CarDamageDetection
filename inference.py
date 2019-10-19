@@ -8,11 +8,10 @@ import matplotlib.pyplot as plt
 
 def inference():
     os.makedirs('./results', exist_ok=True)
-    model: nn.Module = train.get_model()
+    model: nn.Module = train.get_model().cpu()
     sigmoid: nn.Sigmoid = nn.Sigmoid()
-    model.load_state_dict(th.load('model.pth'))
+    model.load_state_dict(th.load('model.pth', map_location='cpu'))
     model.eval()
-    model = model.cpu()
 
     dataloader, dataset = train.get_data_loader('validation/00-damage')
     with th.no_grad():
